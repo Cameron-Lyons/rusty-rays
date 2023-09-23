@@ -19,3 +19,8 @@ struct Sphere {
     center: Vec3f,
     radius: f32,
 }
+
+impl Sphere {
+    fn new(center: Vec3f, radius: f32) -> Sphere {
+        Sphere { center, radius }
+    }
