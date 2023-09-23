@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io::{self, prelude::*};
 
-type Vec3f = (f32, f32, f32);
-
 fn render(width: usize, height: usize) -> io::Result<()> {
     let mut framebuffer: Vec<Vec3f> = vec![(0.0, 0.0, 0.0); width * height];
 

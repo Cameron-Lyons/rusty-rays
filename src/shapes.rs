@@ -14,3 +14,8 @@ impl Vec3f {
         self.0 * self.0 + self.1 * self.1 + self.2 * self.2
     }
 }
+
+struct Sphere {
+    center: Vec3f,
+    radius: f32,
+}
