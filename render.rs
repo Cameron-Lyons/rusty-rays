@@ -26,3 +26,7 @@ fn render(width: usize, height: usize) {
         .expect("Failed to write to file");
     }
 }
+
+fn main() {
+    render();
+}
