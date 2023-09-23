@@ -1,9 +1,9 @@
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 
 type Vec3f = (f32, f32, f32);
 
-fn render(width: usize, height: usize) {
+fn render(width: usize, height: usize) -> io::Result<()> {
     let mut framebuffer: Vec<Vec3f> = vec![(0.0, 0.0, 0.0); width * height];
 
     for j in 0..height {
@@ -12,9 +12,8 @@ fn render(width: usize, height: usize) {
         }
     }
 
-    let mut ofs = File::create("./out.ppm").expect("Unable to create file");
-    ofs.write_all(format!("P6\n{} {}\n255\n", width, height).as_bytes())
-        .expect("Failed to write to file");
+    let mut ofs = File::create("./out.ppm")?;
+    ofs.write_all(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
 
     for &(r, g, b) in &framebuffer {
         let max_value = 255.0;
@@ -22,11 +21,14 @@ fn render(width: usize, height: usize) {
             (max_value * r.clamp(0.0, 1.0)) as u8,
             (max_value * g.clamp(0.0, 1.0)) as u8,
             (max_value * b.clamp(0.0, 1.0)) as u8,
-        ])
-        .expect("Failed to write to file");
+        ])?;
     }
+
+    Ok(())
 }
 
 fn main() {
-    render(width=1024, height=768);
+    if let Err(e) = render(1024, 768) {
+        eprintln!("Error: {}", e);
+    }
 }
