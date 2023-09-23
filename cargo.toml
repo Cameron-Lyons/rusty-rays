@@ -1,0 +1,5 @@
+[package]
+name = "rusty-rays"
+version = "0.1.0"
+authors = ["Cameron Lyons <cameron.lyons2@gmail.com>"]
+
