@@ -28,5 +28,5 @@ fn render(width: usize, height: usize) {
 }
 
 fn main() {
-    render();
+    render(width=1024, height=768);
 }
