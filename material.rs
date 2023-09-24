@@ -12,3 +12,10 @@ const IVORY: Material = Material {
     diffuse_color: Vec3(0.4, 0.4, 0.3),
     specular_exponent: 50.0,
 };
+
+const GLASS: Material = Material {
+    refractive_index: 1.5,
+    albedo: [0.0, 0.9, 0.1, 0.8],
+    diffuse_color: Vec3(0.6, 0.7, 0.8),
+    specular_exponent: 125.0,
+};
