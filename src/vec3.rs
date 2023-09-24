@@ -1,5 +1,5 @@
 #[derive(Clone, Copy, Debug)]
-struct Vec3f(f32, f32, f32);
+pub struct Vec3f(pub f32, pub f32, pub f32);
 
 impl Vec3f {
     fn subtract(&self, other: &Vec3f) -> Vec3f {

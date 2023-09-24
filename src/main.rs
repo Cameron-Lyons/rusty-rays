@@ -1,8 +1,10 @@
 use std::fs::File;
 use std::io::{self, prelude::*};
 
+mod vec3;
+
 fn render(width: usize, height: usize) -> io::Result<()> {
-    let mut framebuffer: Vec<Vec3f> = vec![(0.0, 0.0, 0.0); width * height];
+    let mut framebuffer: Vec<vec3::Vec3f> = vec![vec3::Vec3f(0.0, 0.0, 0.0); width * height];
 
     for j in 0..height {
         for i in 0..width {

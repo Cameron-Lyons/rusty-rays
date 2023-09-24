@@ -1,14 +1,16 @@
+mod vec3;
+
 struct Sphere {
-    center: Vec3f,
+    center: vec3::Vec3f,
     radius: f32,
 }
 
 impl Sphere {
-    fn new(center: Vec3f, radius: f32) -> Sphere {
+    fn new(center: vec3::Vec3f, radius: f32) -> Sphere {
         Sphere { center, radius }
     }
 
-    fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+    fn ray_intersect(&self, orig: &vec3::Vec3f, dir: &vec3::Vec3f) -> Option<f32> {
         let l = self.center.subtract(orig);
         let tca = l.dot(dir);
         let d2 = l.magnitude_squared() - tca * tca;
