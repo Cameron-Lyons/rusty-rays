@@ -26,3 +26,10 @@ const RED_RUBBER: Material = Material {
     diffuse_color: Vec3(0.3, 0.1, 0.1),
     specular_exponent: 10.0,
 };
+
+const MIRROR: Material = Material {
+    refractive_index: 1.0,
+    albedo: [0.0, 16.0, 0.8, 0.0],
+    diffuse_color: Vec3(1.0, 1.0, 1.0),
+    specular_exponent: 1425.0,
+};
