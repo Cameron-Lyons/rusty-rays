@@ -19,3 +19,10 @@ const GLASS: Material = Material {
     diffuse_color: Vec3(0.6, 0.7, 0.8),
     specular_exponent: 125.0,
 };
+
+const RED_RUBBER: Material = Material {
+    refractive_index: 1.0,
+    albedo: [1.4, 0.3, 0.0, 0.0],
+    diffuse_color: Vec3(0.3, 0.1, 0.1),
+    specular_exponent: 10.0,
+};
