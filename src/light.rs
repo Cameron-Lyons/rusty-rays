@@ -22,3 +22,49 @@ impl Lights {
         }
     }
 }
+
+pub fn scene_intersect(
+    orig: &Vec3f,
+    dir: &Vec3f,
+    spheres: &[Sphere],
+) -> (bool, Vec3f, Vec3f, Material) {
+    let mut pt = Vec3f(0.0, 0.0, 0.0);
+    let mut N = Vec3f(0.0, 0.0, 0.0);
+    let mut material = Material {
+        refractive_index: 1.0,
+        albedo: [1.0; 4],
+        diffuse_color: Vec3f(0.0, 0.0, 0.0),
+        specular_exponent: 0.0,
+    };
+
+    let mut nearest_dist = 1e10;
+
+    if dir.1.abs() > 0.001 {
+        let d = -(orig.1 + 4.0) / dir.1;
+        let p = orig.add(&dir.multiply_scalar(d));
+        if d > 0.001 && d < nearest_dist && p.0.abs() < 10.0 && p.2 < -10.0 && p.2 > -30.0 {
+            nearest_dist = d;
+            pt = p;
+            N = Vec3f(0.0, 1.0, 0.0);
+            material.diffuse_color =
+                if ((0.5 * pt.0 + 1000.0) as i32 + (0.5 * pt.2) as i32) & 1 == 0 {
+                    Vec3f(0.3, 0.3, 0.3)
+                } else {
+                    Vec3f(0.3, 0.2, 0.1)
+                };
+        }
+    }
+
+    for s in spheres.iter() {
+        let (intersection, d) = s.ray_intersect(orig, dir);
+        if !intersection || d > nearest_dist {
+            continue;
+        }
+        nearest_dist = d;
+        pt = orig.add(&dir.multiply_scalar(nearest_dist));
+        N = pt.subtract(&s.center); // Assuming you'll implement normalization in Vec3f
+        material = s.material;
+    }
+
+    (nearest_dist < 1000.0, pt, N, material)
+}
