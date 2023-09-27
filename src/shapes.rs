@@ -30,14 +30,14 @@ impl Sphere {
     }
 }
 
-pub struct Box {
+pub struct RecgtangularPrism {
     min: Vec3f,
     max: Vec3f,
 }
 
-impl Box {
-    pub fn new(min: Vec3f, max: Vec3f) -> Rectangle {
-        Rectangle { min, max }
+impl RecgtangularPrism {
+    pub fn new(min: Vec3f, max: Vec3f) -> RecgtangularPrism {
+        RecgtangularPrism { min, max }
     }
 
     pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
