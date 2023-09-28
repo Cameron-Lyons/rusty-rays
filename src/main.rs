@@ -1,7 +1,21 @@
 use std::fs::File;
 use std::io::{self, prelude::*};
+use vec3::Vec3f;
 
 mod vec3;
+
+fn create_gradient_image(width: usize, height: usize) -> Vec<Vec3f> {
+    let mut framebuffer: Vec<Vec3f> = vec![Vec3f(0.0, 0.0, 0.0); width * height];
+
+    for j in 0..height {
+        for i in 0..width {
+            framebuffer[i + j * width] =
+                Vec3f(j as f32 / height as f32, i as f32 / width as f32, 0.0);
+        }
+    }
+
+    framebuffer
+}
 
 fn render(width: usize, height: usize) -> io::Result<()> {
     let mut framebuffer: Vec<vec3::Vec3f> = vec![vec3::Vec3f(0.0, 0.0, 0.0); width * height];
