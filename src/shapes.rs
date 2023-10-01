@@ -2,7 +2,7 @@ mod vec3;
 use vec3::Vec3f;
 
 struct Sphere {
-    center: vec3::Vec3f,
+    center: Vec3f,
     radius: f32,
 }
 
