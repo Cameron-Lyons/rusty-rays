@@ -95,7 +95,7 @@ pub fn scene_intersect(
         }
         nearest_dist = d;
         pt = orig.add(&dir.multiply_scalar(nearest_dist));
-        N = pt.subtract(&s.center); // Assuming you'll implement normalization in Vec3f
+        N = pt.subtract(&s.center);
         material = s.material;
     }
 
