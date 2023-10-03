@@ -1,3 +1,6 @@
+const NEAREST_DIST_THRESHOLD: f32 = 1e10;
+const SMALL_NUMBER: f32 = 0.001;
+
 pub struct Lights {
     pub sources: [Vec3f; 3],
 }

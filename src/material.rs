@@ -36,3 +36,10 @@ const MIRROR: Material = Material {
     diffuse_color: Vec3(1.0, 1.0, 1.0),
     specular_exponent: 1425.0,
 };
+
+const METAL: Material = Material {
+    refractive_index: 1.0,
+    albedo: [0.7, 0.3, 0.1, 0.0],
+    diffuse_color: Vec3(0.6, 0.6, 0.7),
+    specular_exponent: 200.0,
+};
