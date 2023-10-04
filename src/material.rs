@@ -43,3 +43,10 @@ const METAL: Material = Material {
     diffuse_color: Vec3(0.6, 0.6, 0.7),
     specular_exponent: 200.0,
 };
+
+const DARK_WOOD: Material = Material {
+    refractive_index: 1.0,
+    albedo: [0.8, 0.1, 0.05, 0.0],
+    diffuse_color: Vec3(0.2, 0.1, 0.0),
+    specular_exponent: 20.0,
+};
