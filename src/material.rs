@@ -57,3 +57,10 @@ const MARBLE: Material = Material {
     diffuse_color: Vec3(0.7, 0.7, 0.9),
     specular_exponent: 100.0,
 };
+
+const GOLD: Material = Material {
+    refractive_index: 0.47,
+    albedo: [0.8, 1.0, 0.1, 0.0],
+    diffuse_color: Vec3(1.0, 0.8, 0.0),
+    specular_exponent: 300.0,
+};
