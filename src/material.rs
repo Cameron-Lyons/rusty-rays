@@ -64,3 +64,10 @@ const GOLD: Material = Material {
     diffuse_color: Vec3(1.0, 0.8, 0.0),
     specular_exponent: 300.0,
 };
+
+const VELVET: Material = Material {
+    refractive_index: 1.0,
+    albedo: [0.9, 0.1, 0.0, 0.0],
+    diffuse_color: Vec3(0.5, 0.0, 0.5),
+    specular_exponent: 5.0,
+};
