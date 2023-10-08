@@ -71,3 +71,10 @@ const VELVET: Material = Material {
     diffuse_color: Vec3(0.5, 0.0, 0.5),
     specular_exponent: 5.0,
 };
+
+const CORTEN_STEEL: Material = Material {
+    refractive_index: 2.5,
+    albedo: [0.8, 0.3, 0.05, 0.0],
+    diffuse_color: Vec3(0.7, 0.5, 0.4),
+    specular_exponent: 20.0,
+};
