@@ -95,9 +95,57 @@ impl Cone {
         let t0 = (-b - discriminant.sqrt()) / (2.0 * a);
         let t1 = (-b + discriminant.sqrt()) / (2.0 * a);
 
-        // Check if the intersection points are within the cone's bounds (apex to base)
         let valid_t0 = (orig.1 + t0 * dir.1).between(self.apex.1, self.apex.1 + self.height);
         let valid_t1 = (orig.1 + t1 * dir.1).between(self.apex.1, self.apex.1 + self.height);
+
+        if valid_t0 && valid_t1 {
+            return Some(t0.min(t1));
+        } else if valid_t0 {
+            return Some(t0);
+        } else if valid_t1 {
+            return Some(t1);
+        }
+
+        None
+    }
+}
+
+pub struct Cylinder {
+    base_center: Vec3f,
+    height: f32,
+    radius: f32,
+}
+
+impl Cylinder {
+    pub fn new(base_center: Vec3f, height: f32, radius: f32) -> Cylinder {
+        Cylinder {
+            base_center,
+            height,
+            radius,
+        }
+    }
+
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+        let a = dir.0 * dir.0 + dir.2 * dir.2;
+        let b =
+            2.0 * (dir.0 * (orig.0 - self.base_center.0) + dir.2 * (orig.2 - self.base_center.2));
+        let c = (orig.0 - self.base_center.0) * (orig.0 - self.base_center.0)
+            + (orig.2 - self.base_center.2) * (orig.2 - self.base_center.2)
+            - self.radius * self.radius;
+
+        let discriminant = b * b - 4.0 * a * c;
+
+        if discriminant < 0.0 {
+            return None;
+        }
+
+        let t0 = (-b - discriminant.sqrt()) / (2.0 * a);
+        let t1 = (-b + discriminant.sqrt()) / (2.0 * a);
+
+        let valid_t0 =
+            (orig.1 + t0 * dir.1).between(self.base_center.1, self.base_center.1 + self.height);
+        let valid_t1 =
+            (orig.1 + t1 * dir.1).between(self.base_center.1, self.base_center.1 + self.height);
 
         if valid_t0 && valid_t1 {
             return Some(t0.min(t1));
