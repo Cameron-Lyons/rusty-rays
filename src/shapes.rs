@@ -159,6 +159,114 @@ impl Cylinder {
     }
 }
 
+pub struct Pyramid {
+    base_center: Vec3f,
+    height: f32,
+    half_base_length: f32,
+}
+
+impl Pyramid {
+    pub fn new(base_center: Vec3f, height: f32, half_base_length: f32) -> Pyramid {
+        Pyramid {
+            base_center,
+            height,
+            half_base_length,
+        }
+    }
+
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+        let epsilon = 1e-6;
+
+        // Intersection with base square
+        let t_base = (self.base_center.1 - orig.1) / dir.1;
+        if t_base >= 0.0 {
+            let x = orig.0 + t_base * dir.0;
+            let z = orig.2 + t_base * dir.2;
+            if x.between(
+                self.base_center.0 - self.half_base_length,
+                self.base_center.0 + self.half_base_length,
+            ) && z.between(
+                self.base_center.2 - self.half_base_length,
+                self.base_center.2 + self.half_base_length,
+            ) {
+                return Some(t_base);
+            }
+        }
+
+        let apex = Vec3f(
+            self.base_center.0,
+            self.base_center.1 + self.height,
+            self.base_center.2,
+        );
+
+        // Möller–Trumbore intersection algorithm for triangles
+        let mut best_t = std::f32::MAX;
+        let base_points = [
+            Vec3f(
+                self.base_center.0 - self.half_base_length,
+                self.base_center.1,
+                self.base_center.2 - self.half_base_length,
+            ),
+            Vec3f(
+                self.base_center.0 + self.half_base_length,
+                self.base_center.1,
+                self.base_center.2 - self.half_base_length,
+            ),
+            Vec3f(
+                self.base_center.0 + self.half_base_length,
+                self.base_center.1,
+                self.base_center.2 + self.half_base_length,
+            ),
+            Vec3f(
+                self.base_center.0 - self.half_base_length,
+                self.base_center.1,
+                self.base_center.2 + self.half_base_length,
+            ),
+        ];
+
+        for i in 0..4 {
+            let v0 = apex;
+            let v1 = base_points[i];
+            let v2 = base_points[(i + 1) % 4];
+
+            let edge1 = v1.subtract(&v0);
+            let edge2 = v2.subtract(&v0);
+            let h = dir.cross(&edge2);
+            let a = edge1.dot(&h);
+
+            if a > -epsilon && a < epsilon {
+                continue; // Ray is parallel to triangle
+            }
+
+            let f = 1.0 / a;
+            let s = orig.subtract(&v0);
+            let u = f * s.dot(&h);
+
+            if u < 0.0 || u > 1.0 {
+                continue;
+            }
+
+            let q = s.cross(&edge1);
+            let v = f * dir.dot(&q);
+
+            if v < 0.0 || u + v > 1.0 {
+                continue;
+            }
+
+            let t = f * edge2.dot(&q);
+            if t > epsilon && t < best_t {
+                best_t = t;
+            }
+        }
+
+        if best_t < std::f32::MAX {
+            return Some(best_t);
+        }
+
+        None
+    }
+}
+
 trait Between {
     fn between(self, min: f32, max: f32) -> bool;
 }
