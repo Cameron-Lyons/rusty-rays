@@ -267,6 +267,51 @@ impl Pyramid {
     }
 }
 
+pub struct Cube {
+    center: Vec3f,
+    side_length: f32,
+}
+
+impl Cube {
+    pub fn new(center: Vec3f, side_length: f32) -> Cube {
+        Cube {
+            center,
+            side_length,
+        }
+    }
+
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+        let half_side = self.side_length / 2.0;
+        let min = Vec3f(
+            self.center.0 - half_side,
+            self.center.1 - half_side,
+            self.center.2 - half_side,
+        );
+        let max = Vec3f(
+            self.center.0 + half_side,
+            self.center.1 + half_side,
+            self.center.2 + half_side,
+        );
+
+        let t1 = (min.0 - orig.0) / dir.0;
+        let t2 = (max.0 - orig.0) / dir.0;
+        let t3 = (min.1 - orig.1) / dir.1;
+        let t4 = (max.1 - orig.1) / dir.1;
+        let t5 = (min.2 - orig.2) / dir.2;
+        let t6 = (max.2 - orig.2) / dir.2;
+
+        let tmin = t1.min(t2).max(t3.min(t4)).max(t5.min(t6));
+        let tmax = t1.max(t2).min(t3.max(t4)).min(t5.max(t6));
+
+        if tmax < 0.0 || tmin > tmax {
+            return None;
+        }
+
+        let t = if tmin < 0.0 { tmax } else { tmin };
+        Some(t)
+    }
+}
+
 trait Between {
     fn between(self, min: f32, max: f32) -> bool;
 }
