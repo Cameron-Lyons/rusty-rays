@@ -312,6 +312,56 @@ impl Cube {
     }
 }
 
+pub struct Ovoid {
+    center: Vec3f,
+    radii: Vec3f,
+}
+
+impl Ovoid {
+    pub fn new(center: Vec3f, radii: Vec3f) -> Ovoid {
+        Ovoid { center, radii }
+    }
+
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+        let dir_normalized = Vec3f(
+            dir.0 / self.radii.0,
+            dir.1 / self.radii.1,
+            dir.2 / self.radii.2,
+        );
+
+        let orig_shifted = Vec3f(
+            orig.0 - self.center.0,
+            orig.1 - self.center.1,
+            orig.2 - self.center.2,
+        );
+
+        let orig_normalized = Vec3f(
+            orig_shifted.0 / self.radii.0,
+            orig_shifted.1 / self.radii.1,
+            orig_shifted.2 / self.radii.2,
+        );
+
+        let a = dir_normalized.dot(&dir_normalized);
+        let b = 2.0 * dir_normalized.dot(&orig_normalized);
+        let c = orig_normalized.dot(&orig_normalized) - 1.0;
+
+        let discriminant = b * b - 4.0 * a * c;
+
+        if discriminant < 0.0 {
+            return None;
+        }
+
+        let t0 = (-b - discriminant.sqrt()) / (2.0 * a);
+        let t1 = (-b + discriminant.sqrt()) / (2.0 * a);
+
+        if t0 > t1 {
+            return Some(t1);
+        }
+
+        Some(t0)
+    }
+}
+
 trait Between {
     fn between(self, min: f32, max: f32) -> bool;
 }
