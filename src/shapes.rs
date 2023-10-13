@@ -362,6 +362,60 @@ impl Ovoid {
     }
 }
 
+pub struct Torus {
+    center: Vec3f,
+    tube_radius: f32,
+    torus_radius: f32,
+}
+
+impl Torus {
+    pub fn new(center: Vec3f, tube_radius: f32, torus_radius: f32) -> Torus {
+        Torus {
+            center,
+            tube_radius,
+            torus_radius,
+        }
+    }
+
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+        let p = orig.subtract(&self.center);
+
+        let x = p.0;
+        let y = p.1;
+        let z = p.2;
+        let xd = dir.0;
+        let yd = dir.1;
+        let zd = dir.2;
+
+        let c2 = self.torus_radius;
+        let a2 = self.tube_radius;
+        
+        let coeffs = [
+            1.0,
+            4.0 * (x * xd + y * yd),
+            4.0 * (x * x + y * y) + 2.0 * (xd * xd + yd * yd) - a2 + c2 - 2.0 * c2 * zd * zd,
+            4.0 * (x * x * xd + y * y * yd) - 4.0 * a2 * zd,
+            x * x * x * x - 2.0 * a2 * (c2 - z * z) + (x * x + y * y + z * z + c2 - a2) * (x * x + y * y + z * z + c2 - a2),
+        ];
+
+        let roots = solve_quartic(&coeffs);
+
+        // Choose the smallest positive root if there are any
+        let mut min_root = None;
+        for root in roots {
+            if root > 0.0 {
+                min_root = Some(if let Some(current_min) = min_root {
+                    root.min(current_min)
+                } else {
+                    root
+                });
+            }
+        }
+        min_root
+    }
+}
+
+
 trait Between {
     fn between(self, min: f32, max: f32) -> bool;
 }
