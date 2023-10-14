@@ -65,3 +65,24 @@ fn solve_cubic(coeffs: &[f32; 4]) -> Vec<f32> {
 
     roots
 }
+
+fn solve_quadratic(coeffs: &[f32; 3]) -> Vec<f32> {
+    let a = coeffs[0];
+    let b = coeffs[1] / a;
+    let c = coeffs[2] / a;
+
+    let discriminant = b * b - 4.0 * c;
+
+    if discriminant < 0.0 {
+        vec![]
+    } else if discriminant.abs() < 1e-12 {
+        vec![-0.5 * b]
+    } else {
+        let sqrt_discriminant = discriminant.sqrt();
+        vec![
+            -0.5 * (b + sqrt_discriminant),
+            -0.5 * (b - sqrt_discriminant),
+        ]
+    }
+}
+
