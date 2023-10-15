@@ -59,12 +59,27 @@ fn solve_cubic(coeffs: &[f32; 4]) -> Vec<f32> {
 
     let delta_0 = c * c - 3.0 * b * d + 12.0 * a * e;
     let delta_1 = 2.0 * c * c * c - 9.0 * b * c * d + 27.0 * a * d * d + 27.0 * b * b * e - 72.0 * a * c * e;
-    
-    let c = ((delta_1 + (delta_1 * delta_1 - 4.0 * delta_0 * delta_0 * delta_0).sqrt()).powf(1.0/3.0)) / (3.0f32.cbrt() * 2.0f32.powf(1.0/3.0));
-    let roots = vec![(-1.0/(3.0*a))*(b + c + delta_0/c)];
+
+    let discriminant = 18.0 * a * b * c * d - 4.0 * b.powi(3) * d + b.powi(2) * c.powi(2) - 4.0 * a * c.powi(3) - 27.0 * a.powi(2) * d.powi(2);
+
+    let mut roots = Vec::new();
+
+    if discriminant > 0.0 {
+        // 3 real roots
+        
+    } else if discriminant == 0.0 {
+        // 2 real roots
+        roots.push( ... );  // Logic to compute the double root
+        roots.push( ... );  // Logic to compute the single root
+    } else {
+        // 1 real root
+        let c_cube_root = ((delta_1 + (delta_1 * delta_1 - 4.0 * delta_0 * delta_0 * delta_0).sqrt()).powf(1.0/3.0)) / (3.0f32.cbrt() * 2.0f32.powf(1.0/3.0));
+        roots.push((-1.0/(3.0*a))*(b + c_cube_root + delta_0/c_cube_root));
+    }
 
     roots
 }
+
 
 fn solve_quadratic(coeffs: &[f32; 3]) -> Vec<f32> {
     let a = coeffs[0];
