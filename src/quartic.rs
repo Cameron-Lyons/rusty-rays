@@ -66,7 +66,11 @@ fn solve_cubic(coeffs: &[f32; 4]) -> Vec<f32> {
 
     if discriminant > 0.0 {
         // 3 real roots
-        
+        let sd = discriminant.sqrt();
+        let u = cbrt(-q / 2.0 + sd);
+        let v = cbrt(-q / 2.0 - sd);
+
+        roots.push(u + v - b / (3.0 * a));
     } else if discriminant == 0.0 {
         // 2 real roots
         roots.push( ... );  // Logic to compute the double root
