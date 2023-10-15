@@ -105,3 +105,6 @@ fn solve_quadratic(coeffs: &[f32; 3]) -> Vec<f32> {
     }
 }
 
+fn cbrt(x: f32) -> f32 {
+    x.signum() * x.abs().powf(1.0 / 3.0)
+}
