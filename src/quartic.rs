@@ -1,3 +1,5 @@
+const EPSILON: f32 = 1e-12;
+
 fn solve_quartic(coeffs: &[f32; 5]) -> Vec<f32> {
     let a = coeffs[0];
     let b = coeffs[1] / a;
@@ -86,24 +88,28 @@ fn solve_cubic(coeffs: &[f32; 4]) -> Vec<f32> {
 
 
 fn solve_quadratic(coeffs: &[f32; 3]) -> Vec<f32> {
-    let a = coeffs[0];
-    let b = coeffs[1] / a;
-    let c = coeffs[2] / a;
+    let (a, b, c) = (coeffs[0], coeffs[1], coeffs[2]);
 
-    let discriminant = b * b - 4.0 * c;
+    if a.abs() < EPSILON {
+        panic!("Coefficient 'a' cannot be zero for a quadratic equation.");
+    }
+
+    let discriminant = b * b - 4.0 * a * c;
 
     if discriminant < 0.0 {
         vec![]
-    } else if discriminant.abs() < 1e-12 {
-        vec![-0.5 * b]
+    } else if discriminant.abs() < EPSILON {
+        vec![-b / (2.0 * a)]
     } else {
         let sqrt_discriminant = discriminant.sqrt();
+        let denominator = 2.0 * a;
         vec![
-            -0.5 * (b + sqrt_discriminant),
-            -0.5 * (b - sqrt_discriminant),
+            (-b + sqrt_discriminant) / denominator,
+            (-b - sqrt_discriminant) / denominator,
         ]
     }
 }
+
 
 fn cbrt(x: f32) -> f32 {
     x.signum() * x.abs().powf(1.0 / 3.0)
