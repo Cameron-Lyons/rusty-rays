@@ -72,17 +72,22 @@ fn solve_cubic(coeffs: &[f32; 4]) -> Vec<f32> {
 
     let mut roots = Vec::new();
 
-    if discriminant > 0.0 {
+    if discriminant.abs() > EPSILON {
         // 3 real roots
         let sd = discriminant.sqrt();
         let u = cbrt(-q / 2.0 + sd);
         let v = cbrt(-q / 2.0 - sd);
 
         roots.push(u + v - b / (3.0 * a));
-    } else if discriminant == 0.0 {
-        // 2 real roots
-        roots.push( ... );  // Logic to compute the double root
-        roots.push( ... );  // Logic to compute the single root
+    } else if discriminant.abs() < EPSILON {
+        // 2 real roots (1 double root and 1 single root)
+        let double_root = 9.0 * a * d - b * c;
+        let single_root = (9.0 * a * c - b.powi(2)) / double_root;
+    
+        roots.push(double_root);
+        roots.push(single_root);
+    }
+
     } else {
         // 1 real root
         let c_cube_root = ((delta_1 + (delta_1 * delta_1 - 4.0 * delta_0 * delta_0 * delta_0).sqrt()).powf(1.0/3.0)) / (3.0f32.cbrt() * 2.0f32.powf(1.0/3.0));
