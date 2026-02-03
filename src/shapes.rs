@@ -1,17 +1,25 @@
-mod vec3;
-use vec3::Vec3f;
+#![allow(dead_code)]
 
-struct Sphere {
-    center: Vec3f,
-    radius: f32,
+use crate::material::Material;
+use crate::quartic::solve_quartic;
+use crate::vec3::Vec3f;
+
+pub struct Sphere {
+    pub center: Vec3f,
+    pub radius: f32,
+    pub material: Material,
 }
 
 impl Sphere {
-    fn new(center: Vec3f, radius: f32) -> Sphere {
-        Sphere { center, radius }
+    pub fn new(center: Vec3f, radius: f32, material: Material) -> Sphere {
+        Sphere {
+            center,
+            radius,
+            material,
+        }
     }
 
-    fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
+    pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
         let l = self.center.subtract(orig);
         let tca = l.dot(dir);
         let d2 = l.magnitude_squared() - tca * tca;
@@ -31,14 +39,14 @@ impl Sphere {
     }
 }
 
-pub struct RecgtangularPrism {
+pub struct RectangularPrism {
     min: Vec3f,
     max: Vec3f,
 }
 
-impl RecgtangularPrism {
-    pub fn new(min: Vec3f, max: Vec3f) -> RecgtangularPrism {
-        RecgtangularPrism { min, max }
+impl RectangularPrism {
+    pub fn new(min: Vec3f, max: Vec3f) -> RectangularPrism {
+        RectangularPrism { min, max }
     }
 
     pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
@@ -60,6 +68,7 @@ impl RecgtangularPrism {
         Some(t)
     }
 }
+
 pub struct Cone {
     apex: Vec3f,
     height: f32,
@@ -177,7 +186,6 @@ impl Pyramid {
     pub fn ray_intersect(&self, orig: &Vec3f, dir: &Vec3f) -> Option<f32> {
         let epsilon = 1e-6;
 
-        // Intersection with base square
         let t_base = (self.base_center.1 - orig.1) / dir.1;
         if t_base >= 0.0 {
             let x = orig.0 + t_base * dir.0;
@@ -199,8 +207,7 @@ impl Pyramid {
             self.base_center.2,
         );
 
-        // Möller–Trumbore intersection algorithm for triangles
-        let mut best_t = std::f32::MAX;
+        let mut best_t = f32::MAX;
         let base_points = [
             Vec3f(
                 self.base_center.0 - self.half_base_length,
@@ -235,14 +242,14 @@ impl Pyramid {
             let a = edge1.dot(&h);
 
             if a > -epsilon && a < epsilon {
-                continue; // Ray is parallel to triangle
+                continue;
             }
 
             let f = 1.0 / a;
             let s = orig.subtract(&v0);
             let u = f * s.dot(&h);
 
-            if u < 0.0 || u > 1.0 {
+            if !(0.0..=1.0).contains(&u) {
                 continue;
             }
 
@@ -259,7 +266,7 @@ impl Pyramid {
             }
         }
 
-        if best_t < std::f32::MAX {
+        if best_t < f32::MAX {
             return Some(best_t);
         }
 
@@ -389,18 +396,18 @@ impl Torus {
 
         let c2 = self.torus_radius;
         let a2 = self.tube_radius;
-        
+
         let coeffs = [
             1.0,
             4.0 * (x * xd + y * yd),
             4.0 * (x * x + y * y) + 2.0 * (xd * xd + yd * yd) - a2 + c2 - 2.0 * c2 * zd * zd,
             4.0 * (x * x * xd + y * y * yd) - 4.0 * a2 * zd,
-            x * x * x * x - 2.0 * a2 * (c2 - z * z) + (x * x + y * y + z * z + c2 - a2) * (x * x + y * y + z * z + c2 - a2),
+            x * x * x * x - 2.0 * a2 * (c2 - z * z)
+                + (x * x + y * y + z * z + c2 - a2) * (x * x + y * y + z * z + c2 - a2),
         ];
 
         let roots = solve_quartic(&coeffs);
 
-        // Choose the smallest positive root if there are any
         let mut min_root = None;
         for root in roots {
             if root > 0.0 {
@@ -415,7 +422,6 @@ impl Torus {
     }
 }
 
-
 trait Between {
     fn between(self, min: f32, max: f32) -> bool;
 }
@@ -423,5 +429,40 @@ trait Between {
 impl Between for f32 {
     fn between(self, min: f32, max: f32) -> bool {
         self >= min && self <= max
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::material::IVORY;
+
+    #[test]
+    fn test_sphere_hit() {
+        let s = Sphere::new(Vec3f(0.0, 0.0, -5.0), 1.0, IVORY);
+        let orig = Vec3f(0.0, 0.0, 0.0);
+        let dir = Vec3f(0.0, 0.0, -1.0);
+        let t = s.ray_intersect(&orig, &dir);
+        assert!(t.is_some());
+        let t = t.unwrap();
+        assert!((t - 4.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_sphere_miss() {
+        let s = Sphere::new(Vec3f(0.0, 0.0, -5.0), 1.0, IVORY);
+        let orig = Vec3f(0.0, 0.0, 0.0);
+        let dir = Vec3f(0.0, 1.0, 0.0);
+        assert!(s.ray_intersect(&orig, &dir).is_none());
+    }
+
+    #[test]
+    fn test_sphere_inside() {
+        let s = Sphere::new(Vec3f(0.0, 0.0, 0.0), 5.0, IVORY);
+        let orig = Vec3f(0.0, 0.0, 0.0);
+        let dir = Vec3f(0.0, 0.0, -1.0);
+        let t = s.ray_intersect(&orig, &dir);
+        assert!(t.is_some());
+        assert!(t.unwrap() > 0.0);
     }
 }
