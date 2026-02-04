@@ -1,10 +1,12 @@
-use crate::material::Material;
-use crate::shapes::Sphere;
+use crate::bvh::BvhNode;
+use crate::shapes::{HitRecord, Shape};
 use crate::vec3::Vec3f;
+use rand::Rng;
 
 pub struct Light {
     pub position: Vec3f,
     pub intensity: f32,
+    pub radius: f32,
 }
 
 pub fn reflect(i: &Vec3f, n: &Vec3f) -> Vec3f {
@@ -29,18 +31,25 @@ pub fn refract(i: &Vec3f, n: &Vec3f, eta_t: f32, eta_i: f32) -> Vec3f {
 pub fn cast_ray(
     orig: &Vec3f,
     dir: &Vec3f,
-    spheres: &[Sphere],
+    shapes: &[Box<dyn Shape>],
+    bvh: &BvhNode,
     lights: &[Light],
     depth: i32,
+    shadow_samples: u32,
 ) -> Vec3f {
     if depth > 4 {
         return Vec3f(0.2, 0.7, 0.8);
     }
 
-    let (hit, point, n, material) = scene_intersect(orig, dir, spheres);
-    if !hit {
+    let Some(HitRecord {
+        point,
+        normal: n,
+        material,
+        ..
+    }) = bvh.intersect(orig, dir, shapes)
+    else {
         return Vec3f(0.2, 0.7, 0.8);
-    }
+    };
 
     let reflect_dir = reflect(dir, &n).normalize();
     let refract_dir = refract(dir, &n, material.refractive_index, 1.0).normalize();
@@ -56,33 +65,79 @@ pub fn cast_ray(
         point.add_ref(&n.multiply_scalar(1e-3))
     };
 
-    let reflect_color = cast_ray(&reflect_orig, &reflect_dir, spheres, lights, depth + 1);
-    let refract_color = cast_ray(&refract_orig, &refract_dir, spheres, lights, depth + 1);
+    let reflect_color = cast_ray(
+        &reflect_orig,
+        &reflect_dir,
+        shapes,
+        bvh,
+        lights,
+        depth + 1,
+        shadow_samples,
+    );
+    let refract_color = cast_ray(
+        &refract_orig,
+        &refract_dir,
+        shapes,
+        bvh,
+        lights,
+        depth + 1,
+        shadow_samples,
+    );
 
-    let mut diffuse_light_intensity = 0.0;
-    let mut specular_light_intensity = 0.0;
+    let mut diffuse_light_intensity = 0.0f32;
+    let mut specular_light_intensity = 0.0f32;
+    let mut rng = rand::rng();
 
     for light in lights {
-        let light_dir = light.position.subtract(&point).normalize();
-        let light_distance = light.position.subtract(&point).norm();
-
-        let shadow_orig = if light_dir.dot(&n) < 0.0 {
-            point.subtract(&n.multiply_scalar(1e-3))
+        let samples = if light.radius > 0.0 {
+            shadow_samples
         } else {
-            point.add_ref(&n.multiply_scalar(1e-3))
+            1
         };
+        let mut diff_accum = 0.0f32;
+        let mut spec_accum = 0.0f32;
 
-        let (shadow_hit, shadow_pt, _, _) = scene_intersect(&shadow_orig, &light_dir, spheres);
-        if shadow_hit && shadow_pt.subtract(&shadow_orig).norm() < light_distance {
-            continue;
+        for _ in 0..samples {
+            let light_pos = if light.radius > 0.0 {
+                let u: f32 = rng.random();
+                let v: f32 = rng.random();
+                let theta = 2.0 * std::f32::consts::PI * u;
+                let phi = (2.0 * v - 1.0).acos();
+                let offset = Vec3f(
+                    light.radius * phi.sin() * theta.cos(),
+                    light.radius * phi.sin() * theta.sin(),
+                    light.radius * phi.cos(),
+                );
+                light.position.add_ref(&offset)
+            } else {
+                light.position
+            };
+
+            let light_dir = light_pos.subtract(&point).normalize();
+            let light_distance = light_pos.subtract(&point).norm();
+
+            let shadow_orig = if light_dir.dot(&n) < 0.0 {
+                point.subtract(&n.multiply_scalar(1e-3))
+            } else {
+                point.add_ref(&n.multiply_scalar(1e-3))
+            };
+
+            let in_shadow = bvh
+                .intersect(&shadow_orig, &light_dir, shapes)
+                .is_some_and(|sh| sh.point.subtract(&shadow_orig).norm() < light_distance);
+
+            if !in_shadow {
+                diff_accum += light.intensity * f32::max(0.0, light_dir.dot(&n));
+                spec_accum += light.intensity
+                    * f32::powf(
+                        f32::max(0.0, -reflect(&light_dir.negate(), &n).dot(dir)),
+                        material.specular_exponent,
+                    );
+            }
         }
 
-        diffuse_light_intensity += light.intensity * f32::max(0.0, light_dir.dot(&n));
-        specular_light_intensity += light.intensity
-            * f32::powf(
-                f32::max(0.0, -reflect(&light_dir.negate(), &n).dot(dir)),
-                material.specular_exponent,
-            );
+        diffuse_light_intensity += diff_accum / samples as f32;
+        specular_light_intensity += spec_accum / samples as f32;
     }
 
     material
@@ -93,50 +148,4 @@ pub fn cast_ray(
         )
         .add_ref(&reflect_color.multiply_scalar(material.albedo[2]))
         .add_ref(&refract_color.multiply_scalar(material.albedo[3]))
-}
-
-pub fn scene_intersect(
-    orig: &Vec3f,
-    dir: &Vec3f,
-    spheres: &[Sphere],
-) -> (bool, Vec3f, Vec3f, Material) {
-    let mut pt = Vec3f(0.0, 0.0, 0.0);
-    let mut n = Vec3f(0.0, 0.0, 0.0);
-    let mut material = Material {
-        refractive_index: 1.0,
-        albedo: [1.0, 0.0, 0.0, 0.0],
-        diffuse_color: Vec3f(0.0, 0.0, 0.0),
-        specular_exponent: 0.0,
-    };
-
-    let mut nearest_dist: f32 = 1e10;
-
-    if dir.1.abs() > 1e-3 {
-        let d = -(orig.1 + 4.0) / dir.1;
-        let p = orig.add_ref(&dir.multiply_scalar(d));
-        if d > 1e-3 && d < nearest_dist && p.0.abs() < 10.0 && p.2 < -10.0 && p.2 > -30.0 {
-            nearest_dist = d;
-            pt = p;
-            n = Vec3f(0.0, 1.0, 0.0);
-            material.diffuse_color =
-                if ((0.5 * pt.0 + 1000.0) as i32 + (0.5 * pt.2) as i32) & 1 == 0 {
-                    Vec3f(0.3, 0.3, 0.3)
-                } else {
-                    Vec3f(0.3, 0.2, 0.1)
-                };
-        }
-    }
-
-    for s in spheres.iter() {
-        if let Some(d) = s.ray_intersect(orig, dir)
-            && d < nearest_dist
-        {
-            nearest_dist = d;
-            pt = orig.add_ref(&dir.multiply_scalar(d));
-            n = pt.subtract(&s.center).normalize();
-            material = s.material;
-        }
-    }
-
-    (nearest_dist < 1000.0, pt, n, material)
 }
