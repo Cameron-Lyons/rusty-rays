@@ -1,12 +1,17 @@
 use crate::bvh::BvhNode;
 use crate::shapes::{HitRecord, Shape};
 use crate::vec3::Vec3f;
-use rand::Rng;
+use rand::RngExt;
 
 pub struct Light {
     pub position: Vec3f,
     pub intensity: f32,
     pub radius: f32,
+}
+
+fn schlick_fresnel(cos_theta: f32, refractive_index: f32) -> f32 {
+    let r0 = ((1.0 - refractive_index) / (1.0 + refractive_index)).powi(2);
+    r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
 }
 
 pub fn reflect(i: &Vec3f, n: &Vec3f) -> Vec3f {
@@ -35,9 +40,10 @@ pub fn cast_ray(
     bvh: &BvhNode,
     lights: &[Light],
     depth: i32,
+    max_depth: i32,
     shadow_samples: u32,
 ) -> Vec3f {
-    if depth > 4 {
+    if depth > max_depth {
         return Vec3f(0.2, 0.7, 0.8);
     }
 
@@ -72,6 +78,7 @@ pub fn cast_ray(
         bvh,
         lights,
         depth + 1,
+        max_depth,
         shadow_samples,
     );
     let refract_color = cast_ray(
@@ -81,6 +88,7 @@ pub fn cast_ray(
         bvh,
         lights,
         depth + 1,
+        max_depth,
         shadow_samples,
     );
 
@@ -102,7 +110,7 @@ pub fn cast_ray(
                 let u: f32 = rng.random();
                 let v: f32 = rng.random();
                 let theta = 2.0 * std::f32::consts::PI * u;
-                let phi = (2.0 * v - 1.0).acos();
+                let phi = (2.0_f32 * v - 1.0).acos();
                 let offset = Vec3f(
                     light.radius * phi.sin() * theta.cos(),
                     light.radius * phi.sin() * theta.sin(),
@@ -140,12 +148,21 @@ pub fn cast_ray(
         specular_light_intensity += spec_accum / samples as f32;
     }
 
+    let (reflect_weight, refract_weight) = if material.albedo[3] > 0.0 {
+        let cos_theta = (-dir.dot(&n)).max(0.0);
+        let kr = schlick_fresnel(cos_theta, material.refractive_index);
+        let total = material.albedo[2] + material.albedo[3];
+        (total * kr, total * (1.0 - kr))
+    } else {
+        (material.albedo[2], 0.0)
+    };
+
     material
         .diffuse_color
         .multiply_scalar(diffuse_light_intensity * material.albedo[0])
         .add_ref(
             &Vec3f(1.0, 1.0, 1.0).multiply_scalar(specular_light_intensity * material.albedo[1]),
         )
-        .add_ref(&reflect_color.multiply_scalar(material.albedo[2]))
-        .add_ref(&refract_color.multiply_scalar(material.albedo[3]))
+        .add_ref(&reflect_color.multiply_scalar(reflect_weight))
+        .add_ref(&refract_color.multiply_scalar(refract_weight))
 }

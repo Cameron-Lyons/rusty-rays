@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use image::{ImageBuffer, Rgb};
-use rand::Rng;
+use indicatif::{ProgressBar, ProgressStyle};
+use rand::RngExt;
 use rayon::prelude::*;
 
 mod bvh;
@@ -17,6 +18,17 @@ use light::{Light, cast_ray};
 use material::{CORTEN_STEEL, GLASS, GOLD, IVORY, METAL, MIRROR, RED_RUBBER};
 use shapes::{CheckerFloor, Cone, Cube, Cylinder, Shape, Sphere};
 use vec3::Vec3f;
+
+fn parse_vec3(s: &str) -> Result<Vec3f, String> {
+    let parts: Vec<&str> = s.split(',').collect();
+    if parts.len() != 3 {
+        return Err(format!("expected 3 comma-separated floats, got '{s}'"));
+    }
+    let x = parts[0].trim().parse::<f32>().map_err(|e| e.to_string())?;
+    let y = parts[1].trim().parse::<f32>().map_err(|e| e.to_string())?;
+    let z = parts[2].trim().parse::<f32>().map_err(|e| e.to_string())?;
+    Ok(Vec3f(x, y, z))
+}
 
 #[derive(Parser)]
 #[command(name = "rusty-rays")]
@@ -34,6 +46,18 @@ struct Args {
     #[arg(long, default_value_t = 8)]
     shadow_samples: u32,
 
+    #[arg(short = 'd', long, default_value_t = 4)]
+    max_depth: i32,
+
+    #[arg(long, default_value = "0,0,0", value_parser = parse_vec3)]
+    camera_pos: Vec3f,
+
+    #[arg(long, default_value = "0,0,-16", value_parser = parse_vec3)]
+    look_at: Vec3f,
+
+    #[arg(long, default_value_t = 60.0)]
+    fov: f32,
+
     #[arg(short, long, default_value = "out.png")]
     output: PathBuf,
 }
@@ -43,57 +67,74 @@ fn render(
     height: u32,
     samples: u32,
     shadow_samples: u32,
+    max_depth: i32,
+    camera_pos: Vec3f,
+    camera_right: Vec3f,
+    camera_up: Vec3f,
+    camera_forward: Vec3f,
+    tan_fov: f32,
     shapes: &[Box<dyn Shape>],
     bvh: &BvhNode,
     lights: &[Light],
+    progress: &indicatif::ProgressBar,
 ) -> Vec<Vec3f> {
-    let fov = std::f32::consts::FRAC_PI_3;
-    let tan_fov = (fov / 2.0).tan();
     let aspect = width as f32 / height as f32;
 
-    (0..(width as usize * height as usize))
+    (0..height)
         .into_par_iter()
-        .map(|idx| {
-            let i = idx % width as usize;
-            let j = idx / width as usize;
-            let mut color = Vec3f(0.0, 0.0, 0.0);
+        .flat_map(|j| {
+            let row: Vec<Vec3f> = (0..width)
+                .map(|i| {
+                    let mut color = Vec3f(0.0, 0.0, 0.0);
 
-            if samples <= 1 {
-                let x = (2.0 * (i as f32 + 0.5) / width as f32 - 1.0) * tan_fov * aspect;
-                let y = -(2.0 * (j as f32 + 0.5) / height as f32 - 1.0) * tan_fov;
-                let dir = Vec3f(x, y, -1.0).normalize();
-                color = cast_ray(
-                    &Vec3f(0.0, 0.0, 0.0),
-                    &dir,
-                    shapes,
-                    bvh,
-                    lights,
-                    0,
-                    shadow_samples,
-                );
-            } else {
-                let mut rng = rand::rng();
-                for _ in 0..samples {
-                    let jx: f32 = rng.random();
-                    let jy: f32 = rng.random();
-                    let x = (2.0 * (i as f32 + jx) / width as f32 - 1.0) * tan_fov * aspect;
-                    let y = -(2.0 * (j as f32 + jy) / height as f32 - 1.0) * tan_fov;
-                    let dir = Vec3f(x, y, -1.0).normalize();
-                    color = color
-                        + cast_ray(
-                            &Vec3f(0.0, 0.0, 0.0),
+                    if samples <= 1 {
+                        let x = (2.0 * (i as f32 + 0.5) / width as f32 - 1.0) * tan_fov * aspect;
+                        let y = -(2.0 * (j as f32 + 0.5) / height as f32 - 1.0) * tan_fov;
+                        let dir = (camera_right.multiply_scalar(x)
+                            + camera_up.multiply_scalar(y)
+                            + camera_forward)
+                            .normalize();
+                        color = cast_ray(
+                            &camera_pos,
                             &dir,
                             shapes,
                             bvh,
                             lights,
                             0,
+                            max_depth,
                             shadow_samples,
                         );
-                }
-                color = color.multiply_scalar(1.0 / samples as f32);
-            }
+                    } else {
+                        let mut rng = rand::rng();
+                        for _ in 0..samples {
+                            let jx: f32 = rng.random();
+                            let jy: f32 = rng.random();
+                            let x = (2.0 * (i as f32 + jx) / width as f32 - 1.0) * tan_fov * aspect;
+                            let y = -(2.0 * (j as f32 + jy) / height as f32 - 1.0) * tan_fov;
+                            let dir = (camera_right.multiply_scalar(x)
+                                + camera_up.multiply_scalar(y)
+                                + camera_forward)
+                                .normalize();
+                            color = color
+                                + cast_ray(
+                                    &camera_pos,
+                                    &dir,
+                                    shapes,
+                                    bvh,
+                                    lights,
+                                    0,
+                                    max_depth,
+                                    shadow_samples,
+                                );
+                        }
+                        color = color.multiply_scalar(1.0 / samples as f32);
+                    }
 
-            color
+                    color
+                })
+                .collect();
+            progress.inc(1);
+            row
         })
         .collect()
 }
@@ -133,15 +174,40 @@ fn main() {
         },
     ];
 
+    let fov_rad = args.fov.to_radians();
+    let tan_fov = (fov_rad / 2.0).tan();
+
+    let world_up = Vec3f(0.0, 1.0, 0.0);
+    let camera_forward = args.look_at.subtract(&args.camera_pos).normalize();
+    let camera_right = camera_forward.cross(&world_up).normalize();
+    let camera_up = camera_right.cross(&camera_forward);
+
+    let progress = ProgressBar::new(args.height as u64);
+    progress.set_style(
+        ProgressStyle::default_bar()
+            .template("{bar:40.cyan/blue} {pos}/{len} scanlines [{elapsed_precise} elapsed, {eta_precise} remaining]")
+            .unwrap()
+            .progress_chars("##-"),
+    );
+
     let framebuffer = render(
         args.width,
         args.height,
         args.samples,
         args.shadow_samples,
+        args.max_depth,
+        args.camera_pos,
+        camera_right,
+        camera_up,
+        camera_forward,
+        tan_fov,
         &shapes,
         &bvh,
         &lights,
+        &progress,
     );
+
+    progress.finish_and_clear();
 
     let img = ImageBuffer::from_fn(args.width, args.height, |x, y| {
         let Vec3f(r, g, b) = framebuffer[(y * args.width + x) as usize];
