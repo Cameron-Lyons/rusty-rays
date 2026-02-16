@@ -9,6 +9,18 @@ pub struct Light {
     pub radius: f32,
 }
 
+pub struct SceneView<'a> {
+    pub shapes: &'a [Box<dyn Shape>],
+    pub bvh: &'a BvhNode,
+    pub lights: &'a [Light],
+}
+
+#[derive(Clone, Copy)]
+pub struct TraceConfig {
+    pub max_depth: i32,
+    pub shadow_samples: u32,
+}
+
 fn schlick_fresnel(cos_theta: f32, refractive_index: f32) -> f32 {
     let r0 = ((1.0 - refractive_index) / (1.0 + refractive_index)).powi(2);
     r0 + (1.0 - r0) * (1.0 - cos_theta).powi(5)
@@ -36,14 +48,11 @@ pub fn refract(i: &Vec3f, n: &Vec3f, eta_t: f32, eta_i: f32) -> Vec3f {
 pub fn cast_ray(
     orig: &Vec3f,
     dir: &Vec3f,
-    shapes: &[Box<dyn Shape>],
-    bvh: &BvhNode,
-    lights: &[Light],
+    scene: &SceneView<'_>,
     depth: i32,
-    max_depth: i32,
-    shadow_samples: u32,
+    config: TraceConfig,
 ) -> Vec3f {
-    if depth > max_depth {
+    if depth > config.max_depth {
         return Vec3f(0.2, 0.7, 0.8);
     }
 
@@ -52,7 +61,7 @@ pub fn cast_ray(
         normal: n,
         material,
         ..
-    }) = bvh.intersect(orig, dir, shapes)
+    }) = scene.bvh.intersect(orig, dir, scene.shapes)
     else {
         return Vec3f(0.2, 0.7, 0.8);
     };
@@ -71,34 +80,16 @@ pub fn cast_ray(
         point.add_ref(&n.multiply_scalar(1e-3))
     };
 
-    let reflect_color = cast_ray(
-        &reflect_orig,
-        &reflect_dir,
-        shapes,
-        bvh,
-        lights,
-        depth + 1,
-        max_depth,
-        shadow_samples,
-    );
-    let refract_color = cast_ray(
-        &refract_orig,
-        &refract_dir,
-        shapes,
-        bvh,
-        lights,
-        depth + 1,
-        max_depth,
-        shadow_samples,
-    );
+    let reflect_color = cast_ray(&reflect_orig, &reflect_dir, scene, depth + 1, config);
+    let refract_color = cast_ray(&refract_orig, &refract_dir, scene, depth + 1, config);
 
     let mut diffuse_light_intensity = 0.0f32;
     let mut specular_light_intensity = 0.0f32;
     let mut rng = rand::rng();
 
-    for light in lights {
+    for light in scene.lights {
         let samples = if light.radius > 0.0 {
-            shadow_samples
+            config.shadow_samples
         } else {
             1
         };
@@ -130,8 +121,9 @@ pub fn cast_ray(
                 point.add_ref(&n.multiply_scalar(1e-3))
             };
 
-            let in_shadow = bvh
-                .intersect(&shadow_orig, &light_dir, shapes)
+            let in_shadow = scene
+                .bvh
+                .intersect(&shadow_orig, &light_dir, scene.shapes)
                 .is_some_and(|sh| sh.point.subtract(&shadow_orig).norm() < light_distance);
 
             if !in_shadow {

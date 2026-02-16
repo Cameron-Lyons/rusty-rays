@@ -14,7 +14,7 @@ mod shapes;
 mod vec3;
 
 use bvh::BvhNode;
-use light::{Light, cast_ray};
+use light::{Light, SceneView, TraceConfig, cast_ray};
 use material::{CORTEN_STEEL, GLASS, GOLD, IVORY, METAL, MIRROR, RED_RUBBER};
 use shapes::{CheckerFloor, Cone, Cube, Cylinder, Shape, Sphere};
 use vec3::Vec3f;
@@ -62,78 +62,75 @@ struct Args {
     output: PathBuf,
 }
 
-fn render(
+struct CameraBasis {
+    pos: Vec3f,
+    right: Vec3f,
+    up: Vec3f,
+    forward: Vec3f,
+    tan_fov: f32,
+}
+
+struct RenderParams<'a> {
     width: u32,
     height: u32,
     samples: u32,
-    shadow_samples: u32,
-    max_depth: i32,
-    camera_pos: Vec3f,
-    camera_right: Vec3f,
-    camera_up: Vec3f,
-    camera_forward: Vec3f,
-    tan_fov: f32,
-    shapes: &[Box<dyn Shape>],
-    bvh: &BvhNode,
-    lights: &[Light],
-    progress: &indicatif::ProgressBar,
-) -> Vec<Vec3f> {
-    let aspect = width as f32 / height as f32;
+    camera: CameraBasis,
+    scene: SceneView<'a>,
+    trace: TraceConfig,
+    progress: &'a indicatif::ProgressBar,
+}
 
-    (0..height)
+fn render(params: RenderParams<'_>) -> Vec<Vec3f> {
+    let aspect = params.width as f32 / params.height as f32;
+
+    (0..params.height)
         .into_par_iter()
         .flat_map(|j| {
-            let row: Vec<Vec3f> = (0..width)
+            let row: Vec<Vec3f> = (0..params.width)
                 .map(|i| {
                     let mut color = Vec3f(0.0, 0.0, 0.0);
 
-                    if samples <= 1 {
-                        let x = (2.0 * (i as f32 + 0.5) / width as f32 - 1.0) * tan_fov * aspect;
-                        let y = -(2.0 * (j as f32 + 0.5) / height as f32 - 1.0) * tan_fov;
-                        let dir = (camera_right.multiply_scalar(x)
-                            + camera_up.multiply_scalar(y)
-                            + camera_forward)
+                    if params.samples <= 1 {
+                        let x = (2.0 * (i as f32 + 0.5) / params.width as f32 - 1.0)
+                            * params.camera.tan_fov
+                            * aspect;
+                        let y = -(2.0 * (j as f32 + 0.5) / params.height as f32 - 1.0)
+                            * params.camera.tan_fov;
+                        let dir = (params.camera.right.multiply_scalar(x)
+                            + params.camera.up.multiply_scalar(y)
+                            + params.camera.forward)
                             .normalize();
-                        color = cast_ray(
-                            &camera_pos,
-                            &dir,
-                            shapes,
-                            bvh,
-                            lights,
-                            0,
-                            max_depth,
-                            shadow_samples,
-                        );
+                        color = cast_ray(&params.camera.pos, &dir, &params.scene, 0, params.trace);
                     } else {
                         let mut rng = rand::rng();
-                        for _ in 0..samples {
+                        for _ in 0..params.samples {
                             let jx: f32 = rng.random();
                             let jy: f32 = rng.random();
-                            let x = (2.0 * (i as f32 + jx) / width as f32 - 1.0) * tan_fov * aspect;
-                            let y = -(2.0 * (j as f32 + jy) / height as f32 - 1.0) * tan_fov;
-                            let dir = (camera_right.multiply_scalar(x)
-                                + camera_up.multiply_scalar(y)
-                                + camera_forward)
+                            let x = (2.0 * (i as f32 + jx) / params.width as f32 - 1.0)
+                                * params.camera.tan_fov
+                                * aspect;
+                            let y = -(2.0 * (j as f32 + jy) / params.height as f32 - 1.0)
+                                * params.camera.tan_fov;
+                            let dir = (params.camera.right.multiply_scalar(x)
+                                + params.camera.up.multiply_scalar(y)
+                                + params.camera.forward)
                                 .normalize();
                             color = color
                                 + cast_ray(
-                                    &camera_pos,
+                                    &params.camera.pos,
                                     &dir,
-                                    shapes,
-                                    bvh,
-                                    lights,
+                                    &params.scene,
                                     0,
-                                    max_depth,
-                                    shadow_samples,
+                                    params.trace,
                                 );
                         }
-                        color = color.multiply_scalar(1.0 / samples as f32);
+                        color = color.multiply_scalar(1.0 / params.samples as f32);
                     }
 
                     color
                 })
                 .collect();
-            progress.inc(1);
+            params.progress.inc(1);
             row
         })
         .collect()
@@ -190,22 +187,28 @@ fn main() {
             .progress_chars("##-"),
     );
 
-    let framebuffer = render(
-        args.width,
-        args.height,
-        args.samples,
-        args.shadow_samples,
-        args.max_depth,
-        args.camera_pos,
-        camera_right,
-        camera_up,
-        camera_forward,
-        tan_fov,
-        &shapes,
-        &bvh,
-        &lights,
-        &progress,
-    );
+    let framebuffer = render(RenderParams {
+        width: args.width,
+        height: args.height,
+        samples: args.samples,
+        camera: CameraBasis {
+            pos: args.camera_pos,
+            right: camera_right,
+            up: camera_up,
+            forward: camera_forward,
+            tan_fov,
+        },
+        scene: SceneView {
+            shapes: &shapes,
+            bvh: &bvh,
+            lights: &lights,
+        },
+        trace: TraceConfig {
+            max_depth: args.max_depth,
+            shadow_samples: args.shadow_samples,
+        },
+        progress: &progress,
+    });
 
     progress.finish_and_clear();
 
